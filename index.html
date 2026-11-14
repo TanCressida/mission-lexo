@@ -2181,7 +2181,7 @@ const Store={
         const o=JSON.parse(raw);
         if(!o||typeof o!=='object'||(o.v!==2&&o.v!==1))throw new Error('format');
         if(old){delete o.rewards;delete o.cap}
-        this.mem=cleanState(o);return this.mem;
+        this.mem=cleanState(o);if(!this.mem.gift1114){this.mem.gift1114=1;this.mem.crystals+=3;this.save(true)}return this.mem;
       }catch(e){this.broken=true}
     }
     this.mem=defaultState();return this.mem;
@@ -2368,8 +2368,7 @@ function finishMission(S,ses){
   const after=openSet(S);
   const unlocked=STATIONS.filter(s=>after[s.id]&&!before[s.id]);
   const gainRaw=stars;
-  const room=Math.max(0,S.cap-S.todayC);
-  const gain=Math.min(gainRaw,room);
+  const gain=gainRaw;
   S.todayC+=gain;S.crystals+=gain;S.stars+=stars;
   let bonus=0;
   if(S.lastDay!==S.day){
@@ -2741,7 +2740,7 @@ function viewDefis(){
 }
 function viewTresors(){
   const L=ladder(S),done=L.every(x=>x.st==='got');
-  let h=`<h1>Les trésors</h1><div class="card"><p class="gems">${spr('gem',.4)}<span>${S.crystals}<span class="sr"> cristaux</span></span></p><p class="muted" style="margin:0">Aujourd’hui : ${S.todayC} sur ${S.cap} cristaux possibles. Série : ${S.streak} jour${S.streak>1?'s':''}.</p></div>`;
+  let h=`<h1>Les trésors</h1><div class="card"><p class="gems">${spr('gem',.4)}<span>${S.crystals}<span class="sr"> cristaux</span></span></p><p class="muted" style="margin:0">Aujourd’hui : ${S.todayC} cristaux gagnés. Série : ${S.streak} jour${S.streak>1?'s':''}.</p></div>`;
   h+=rankCard().replace('class="card rank"','class="card rank" style="margin-top:.8rem"');
   h+=`<h2 style="margin-top:1.2rem">L’échelle des coffres</h2><p class="muted">Chaque coffre s’ouvre avec des cristaux. Les coffres deviennent de plus en plus rares : bois, pierre, fer, or, puis cristal.</p><ol class="lad">`;
   L.forEach(x=>{
@@ -2818,7 +2817,7 @@ function viewParents(){
     const r=x.r;
     h+=`<fieldset class="field"><legend class="lbl">Palier ${i+1} : coffre ${esc(x.mat[1].toLowerCase())}, ${x.st==='got'?'remis':x.st==='ready'?'à remettre':'pas encore atteint'}</legend><div class="row"><label class="sr" for="rn${i}">Nom du palier ${i+1}</label><input type="text" id="rn${i}" name="rn${i}" value="${esc(r.name)}" maxlength="60"><label class="sr" for="rc${i}">Coût en cristaux du palier ${i+1}</label><input type="number" id="rc${i}" name="rc${i}" value="${r.cost}" min="1" max="2000" inputmode="numeric" style="max-width:7rem">${x.st==='ready'?`<button type="button" class="btn small gold" data-act="remis" data-id="${r.id}">Remis</button>`:''}</div></fieldset>`;
   });
-  h+=`<div class="field"><label for="cap">Cristaux maximum par jour</label><input type="number" id="cap" name="cap" value="${S.cap}" min="3" max="20" inputmode="numeric" style="max-width:7rem"></div><button type="submit" class="btn small gold">Enregistrer les récompenses</button></form>`;
+  h+=`<button type="submit" class="btn small gold">Enregistrer les récompenses</button></form>`;
   if(L.every(x=>x.st==='got'))h+=`<p style="margin-top:1rem">Tous les coffres ont été remis.</p><button type="button" class="btn small" data-act="restartlad">Relancer l’échelle</button>`;
   h+=`<p class="muted">« Remis » marque un palier comme donné. Le coût d’un palier s’ajoute à ceux d’avant.</p></section>`;
   h+=`<section class="card" aria-labelledby="p6"><h2 id="p6">Sécurité</h2><div class="row"><button type="button" class="btn small ghost" data-act="chpin">Changer le code</button><button type="button" class="btn small ghost" data-act="askreset">Tout effacer</button><button type="button" class="btn small" data-act="lockp">Verrouiller</button></div></section>`;
@@ -3118,7 +3117,7 @@ function finishSession(){
   }else if(ses.kind==='eclair'){
     const n=ses.correct,tot=ses.qs.length;
     ensureDay(S);
-    const want=n>=9?2:n>=6?1:0,gain=Math.min(want,Math.max(0,S.cap-S.todayC));
+    const want=n>=9?2:n>=6?1:0,gain=want;
     S.todayC+=gain;S.crystals+=gain;
     const nb=n>(S.eclair.best||0);if(nb)S.eclair.best=n;save();updateTop();
     h=`<div class="wrap"><h1 id="lt" class="center" tabindex="-1">Défi terminé</h1><div class="center">${owlSpr(n>=6?'cheer':'happy',.6)}</div><p class="center"><b>${n} bonne${n>1?'s':''} réponse${n>1?'s':''} sur ${tot}</b>${nb&&n>0?' · nouveau record':''}</p><p class="center">${sprIc('gem',.25)} +${gain} ${gain>1?'cristaux':'cristal'}</p><div class="actions"><button type="button" class="btn gold" data-act="eclair">Rejouer</button><button type="button" class="btn ghost" data-act="done">Retour</button></div></div>`;
@@ -3247,7 +3246,7 @@ document.addEventListener('submit',e=>{
   if(f.id==='nameform'){const v=f.nm.value.trim();if(v){S.name=v.slice(0,20);save();render(true);announce('Prénom enregistré.')}}
   if(f.id==='rwform'){
     S.lad.forEach((r,i)=>{const n=f['rn'+i].value.trim(),c=parseInt(f['rc'+i].value,10);if(n)r.name=n.slice(0,60);if(c>0&&c<=2000)r.cost=c});
-    const cap=parseInt(f.cap.value,10);if(cap>=3&&cap<=20)S.cap=cap;
+    
     save();render(true);announce('Récompenses enregistrées.');
   }
   if(f.id==='readform'){
