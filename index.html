@@ -2139,12 +2139,42 @@ const LS_KEY='lexo.v2',LS_OLD='lexo.v1';
 /* Échelle de paliers cumulés (même principe que Mission Calculo). Modifiable dans l'espace parents. */
 const RW_KEYS=['candy','dessert','film','jeu','sortie','ticket','livre','build','parc','tente','game','trip','toy','trophy'];
 function defaultLadder(){return[
- ['Un sachet de bonbons','candy',20],['Choisir le dessert du dimanche','dessert',25],['Soirée film avec popcorn','film',30],
- ['1h supplémentaire de jeu vidéo','jeu',30],['Une sortie à deux : Octave choisit où','sortie',40],['Une séance de cinéma','ticket',45],
- ['Un livre ou une BD au choix','livre',55],['Un set de construction','build',75],['Une journée parc de jeux ou trampoline','parc',90],
- ['Une nuit sous la tente dans le salon, avec un ami','tente',100],['Un jeu vidéo au choix','game',120],['Une grande sortie : parc d’attractions ou zoo','trip',150],
- ['Un grand jouet ou un accessoire à choisir','toy',200],['Un week-end spécial à deux','trophy',250]
+ ['Un sachet de bonbons','candy',20],['Choisir le dessert du dimanche','dessert',25],['Un jeu vidéo au choix','game',30],
+ ['1h supplémentaire de jeu vidéo','jeu',20],['Soirée film avec popcorn','film',30],['Une sortie à deux : Octave choisit où','sortie',40],
+ ['Une séance de cinéma','ticket',45],['Un livre ou une BD au choix','livre',55],['Un set de construction','build',75],
+ ['Une journée parc de jeux ou trampoline','parc',90],['Une nuit sous la tente dans le salon, avec un ami','tente',100],
+ ['Une grande sortie : parc d’attractions ou zoo','trip',150],['Un grand jouet ou un accessoire à choisir','toy',200],['Un week-end spécial à deux','trophy',250]
 ].map((a,i)=>({id:i+1,name:a[0],icon:a[1],cost:a[2],got:false}))}
+/* Migration v2 de l'échelle : le jeu vidéo au choix passe vers 75 cristaux cumulés.
+   Les paliers déjà gagnés ou débloqués (prefixe) ne bougent pas : ni ordre, ni coût, ni statut. */
+const LAD_GAME='Un jeu vidéo au choix',LAD_T=75,LAD_MIN=15,LAD_MARGIN=25;
+const LAD_OLD={'Un sachet de bonbons':20,'Choisir le dessert du dimanche':25,'Soirée film avec popcorn':30,'1h supplémentaire de jeu vidéo':30,'Une sortie à deux : Octave choisit où':40,'Une séance de cinéma':45,'Un livre ou une BD au choix':55,'Un set de construction':75,'Une journée parc de jeux ou trampoline':90,'Une nuit sous la tente dans le salon, avec un ami':100,'Un jeu vidéo au choix':120,'Une grande sortie : parc d’attractions ou zoo':150,'Un grand jouet ou un accessoire à choisir':200,'Un week-end spécial à deux':250};
+function migrateLadder(s){
+  if(s.ladV===2)return;
+  s.ladV=2;
+  const L=s.lad;if(!Array.isArray(L)||!L.length)return;
+  const prog=Math.max(0,(Number(s.crystals)||0)-(Number(s.ladBase)||0));
+  let cum=0,last=-1;
+  L.forEach((r,i)=>{cum+=r.cost;if(r.got||prog>=cum)last=i});
+  const pre=L.slice(0,last+1),rest=L.slice(last+1);
+  const canon=defaultLadder(),cc={},ci={};canon.forEach((r,i)=>{cc[r.name]=r.cost;ci[r.name]=i});
+  const full=rest.every(r=>r.name in ci);
+  let ord=rest.slice();
+  if(full){
+    ord.sort((a,b)=>ci[a.name]-ci[b.name]);
+    ord.forEach(r=>{if(r.name!==LAD_GAME&&r.cost===LAD_OLD[r.name])r.cost=cc[r.name]});
+  }
+  const g=ord.find(r=>r.name===LAD_GAME);
+  if(g){
+    ord=ord.filter(r=>r!==g);
+    const mod=g.cost!==LAD_OLD[LAD_GAME],need=mod?g.cost:LAD_MARGIN;
+    let c=pre.reduce((a,r)=>a+r.cost,0),k=0;
+    while(k<ord.length&&c+ord[k].cost+need<=LAD_T){c+=ord[k].cost;k++}
+    if(!mod)g.cost=Math.max(LAD_MIN,Math.min(60,LAD_T-c));
+    ord.splice(k,0,g);
+  }
+  s.lad=pre.concat(ord);
+}
 const TIERS_MAT=[['bois','Bois',0],['pierre','Pierre',3],['fer','Fer',6],['or','Or',9],['cristal','Cristal',12]];
 function matOf(i){let m=TIERS_MAT[0];TIERS_MAT.forEach(t=>{if(i>=t[2])m=t});return m}
 const RANKS=[['Recrue',0],['Apprenti',8],['Éclaireur',20],['Bâtisseur',38],['Gardien',60],['Chevalier',85],['Maître',110],['Légende',135]];
@@ -2152,13 +2182,13 @@ function dayStr(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth(
 function defaultState(){
   return {v:2,owner:'',ts:0,name:'Octave',crystals:0,stars:0,day:'',todayC:0,streak:0,lastDay:'',bonusDay:'',
     sk:{},st:{},err:{},seenT:{},open:{},placed:false,flu:[],hist:[],eclair:{best:0},
-    lad:defaultLadder(),ladBase:0,cap:10,pin:'',world:1,
+    lad:defaultLadder(),ladV:2,ladBase:0,cap:10,pin:'',world:1,
     prefs:{size:100,font:'andika',theme:'night',sound:true,voice:true,motion:'auto',timer:false}};
 }
 function cleanState(o){
   const d=defaultState();
   const s=Object.assign(d,o);
-  s.v=2;
+  s.v=2;s.ladV=o.ladV===2?2:0;
   s.prefs=Object.assign(d.prefs,o.prefs||{});
   ['sk','st','err','seenT','open','eclair'].forEach(k=>{if(!s[k]||typeof s[k]!=='object'||Array.isArray(s[k]))s[k]=d[k]});
   ['flu','hist'].forEach(k=>{if(!Array.isArray(s[k]))s[k]=d[k]});
@@ -2169,6 +2199,7 @@ function cleanState(o){
   s.cap=Math.min(20,Math.max(3,Math.round(Number(s.cap)||10)));
   if(typeof s.pin!=='string'||!/^\d{4}$/.test(s.pin))s.pin='';
   s.world=s.world===2?2:1;
+  if(s.ladV!==2)migrateLadder(s);
   return s;
 }
 const Store={
@@ -2181,7 +2212,7 @@ const Store={
         const o=JSON.parse(raw);
         if(!o||typeof o!=='object'||(o.v!==2&&o.v!==1))throw new Error('format');
         if(old){delete o.rewards;delete o.cap}
-        this.mem=cleanState(o);if(!this.mem.gift1114){this.mem.gift1114=1;this.mem.crystals+=3;this.save(true)}return this.mem;
+        this.mem=cleanState(o);if(!this.mem.gift1114){this.mem.gift1114=1;this.mem.crystals+=3;this.save(true)}if(o.ladV!==2)this.save(true);return this.mem;
       }catch(e){this.broken=true}
     }
     this.mem=defaultState();return this.mem;
