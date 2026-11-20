@@ -2784,7 +2784,7 @@ function viewDefis(){
 }
 function viewTresors(){
   const L=ladder(S),done=L.every(x=>x.st==='got');
-  let h=`<h1>Les trésors</h1><div class="card"><p class="gems">${spr('gem',.4)}<span>${S.crystals}<span class="sr"> cristaux</span></span></p><p class="muted" style="margin:0">Aujourd’hui : ${S.todayC} cristaux gagnés. Série : ${S.streak} jour${S.streak>1?'s':''}.</p></div>`;
+  let h=`<h1>Les trésors</h1><div class="card"><p class="gems">${spr('gem',.4)}<span>${S.crystals}<span class="sr"> cristaux</span></span></p><p class="muted" style="margin:0">Aujourd’hui : ${S.todayC} cristaux gagnés. Version du 20 nov. 19h45. Série : ${S.streak} jour${S.streak>1?'s':''}.</p></div>`;
   h+=rankCard().replace('class="card rank"','class="card rank" style="margin-top:.8rem"');
   h+=`<h2 style="margin-top:1.2rem">L’échelle des coffres</h2><p class="muted">Chaque coffre s’ouvre avec des cristaux. Les coffres deviennent de plus en plus rares : bois, pierre, fer, or, puis cristal.</p><ol class="lad">`;
   L.forEach(x=>{
